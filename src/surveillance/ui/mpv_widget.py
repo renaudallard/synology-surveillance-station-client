@@ -316,9 +316,23 @@ class MpvGLArea(Gtk.GLArea):
                 ao_option["ao"] = ao
                 log.info("Audio output driver set to %s", ao)
 
+            # SURVEILLANCE_HWDEC picks the hardware decoder (mpv --hwdec values:
+            # auto, nvdec, nvdec-copy, vaapi, no ...). SURVEILLANCE_MPV_OPTS passes
+            # extra mpv options as "name=value,name=value" (e.g.
+            # "hwdec-extra-frames=32" when NVDEC reports "No decoder surfaces
+            # left" on streams with deep reorder buffers). Both optional.
+            hwdec = os.environ.get("SURVEILLANCE_HWDEC", "").strip() or "auto"
+            extra_opts: dict[str, str] = {}
+            for item in os.environ.get("SURVEILLANCE_MPV_OPTS", "").split(","):
+                if "=" in item:
+                    name, value = item.split("=", 1)
+                    extra_opts[name.strip().replace("-", "_")] = value.strip()
+            if extra_opts:
+                log.info("Extra mpv options from SURVEILLANCE_MPV_OPTS: %s", extra_opts)
+
             self._mpv = mpv.MPV(
                 vo="libmpv",
-                hwdec="auto",
+                hwdec=hwdec,
                 keep_open="yes",
                 idle="yes",
                 input_default_bindings=False,
@@ -336,6 +350,7 @@ class MpvGLArea(Gtk.GLArea):
                 mute=self._muted,
                 volume=self._volume,
                 **ao_option,
+                **extra_opts,
             )
 
             # Wrap with mpv's own CFUNCTYPE so ctypes type identity matches
